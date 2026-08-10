@@ -1,4 +1,9 @@
-# MacDashboard
+# MacDashboard (MacCeption)
+
+## Short Description: 
+A cute little Mac-inspired dashboard for Codex! I had Codex whip most of this up for me, but I did design all of the features and work on a few things where it didn't get the aesthetic quite right. I'll be adding more in the way of recommendations and apps, but it currently features a book/movie recommendation engine, a photo recommendation engine, a notes app that functions as the profile for the recommendations, and a messages assistant. 
+
+# Official Doc
 
 [![CI](https://github.com/wildfellhall/MacDashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/wildfellhall/MacDashboard/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

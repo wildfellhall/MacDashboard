@@ -1,0 +1,70 @@
+{
+  "name": "mac-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A local-first, AI-powered personal recommendation dashboard with a macOS-inspired interface.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildfellhall/MacDashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wildfellhall/MacDashboard/issues"
+  },
+  "homepage": "https://github.com/wildfellhall/MacDashboard#readme",
+  "keywords": [
+    "dashboard",
+    "recommendations",
+    "local-first",
+    "react",
+    "codex"
+  ],
+  "engines": {
+    "node": ">=22.9.0",
+    "npm": ">=10"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --kill-others --names web,ai --prefix-colors blue,magenta \"npm run web:dev\" \"npm run api:dev\"",
+    "web:dev": "vite",
+    "api:dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "api:start": "node --env-file-if-exists=.env server/index.js",
+    "build": "tsc -b && vite build",
+    "check": "npm run audit:public && npm run lint && npm test && npm run build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:http": "RUN_HTTP_TESTS=1 vitest run server/http.test.js",
+    "audit:public": "node scripts/public-release-audit.mjs"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "^0.146.0",
+    "concurrently": "^10.0.4",
+    "dompurify": "^3.4.13",
+    "express": "^5.2.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.468.0",
+    "openai": "^7.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.3",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^15.14.0",
+    "jsdom": "^25.0.1",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.18.2",
+    "vite": "^6.0.5",
+    "vitest": "^4.1.10"
+  }
+}

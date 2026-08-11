@@ -6,6 +6,7 @@ import {
   Tv,
   type LucideIcon,
 } from "lucide-react";
+import { useState } from "react";
 import type { AppId } from "../types";
 
 type Props = {
@@ -23,15 +24,30 @@ const APP_GLYPHS: Record<AppId, LucideIcon> = {
 
 export function AppIcon({ appId, size = "large" }: Props) {
   const Glyph = APP_GLYPHS[appId];
+  const [nativeAvailable, setNativeAvailable] = useState(true);
+  const [nativeLoaded, setNativeLoaded] = useState(false);
 
   return (
     <span
-      className={`app-icon app-icon--${size} app-icon--${appId}`}
+      className={`app-icon app-icon--${size} app-icon--${appId} ${
+        nativeLoaded ? "has-native-icon" : ""
+      }`}
       data-app-icon={appId}
       aria-hidden="true"
     >
       <span className="app-icon__shine" />
       <Glyph className="app-icon__glyph" strokeWidth={1.75} />
+      {nativeAvailable && (
+        <img
+          className="app-icon__native"
+          src={`/local-icons/${appId}.png`}
+          alt=""
+          draggable={false}
+          data-native-icon={appId}
+          onLoad={() => setNativeLoaded(true)}
+          onError={() => setNativeAvailable(false)}
+        />
+      )}
     </span>
   );
 }

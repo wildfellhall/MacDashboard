@@ -55,6 +55,11 @@ describe("MacDashboard desktop", () => {
         icon.getAttribute("data-app-icon"),
       ),
     ).toEqual(["messages", "notes", "photos", "books", "tv", "trash"]);
+    expect(
+      [...dock.querySelectorAll("[data-native-icon]")].map((icon) =>
+        icon.getAttribute("data-native-icon"),
+      ),
+    ).toEqual(["messages", "notes", "photos", "books", "tv", "trash"]);
   });
 
   it("launches a closed app from the dock", () => {

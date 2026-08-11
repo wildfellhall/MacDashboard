@@ -9,5 +9,6 @@ npm-debug.log*
 !.env.example
 coverage
 .macdashboard/
+public/local-icons/
 .idea/
 .vscode/

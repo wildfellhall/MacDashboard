@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import { useState } from "react";
 import type { AppId, AppMeta, WindowState } from "../types";
 import { AppIcon } from "./AppIcon";
 
@@ -9,6 +10,9 @@ type Props = {
 };
 
 export function Dock({ apps, windows, onOpen }: Props) {
+  const [nativeTrashAvailable, setNativeTrashAvailable] = useState(true);
+  const [nativeTrashLoaded, setNativeTrashLoaded] = useState(false);
+
   return (
     <nav className="dock" aria-label="Applications">
       {apps.map((app) => {
@@ -43,8 +47,23 @@ export function Dock({ apps, windows, onOpen }: Props) {
         aria-label="Trash unavailable in this browser dashboard"
       >
         <span className="dock-tooltip">Trash</span>
-        <span className="trash-icon" data-app-icon="trash" aria-hidden="true">
+        <span
+          className={`trash-icon ${nativeTrashLoaded ? "has-native-icon" : ""}`}
+          data-app-icon="trash"
+          aria-hidden="true"
+        >
           <Trash2 strokeWidth={1.55} />
+          {nativeTrashAvailable && (
+            <img
+              className="trash-icon__native"
+              src="/local-icons/trash-empty.png"
+              alt=""
+              draggable={false}
+              data-native-icon="trash"
+              onLoad={() => setNativeTrashLoaded(true)}
+              onError={() => setNativeTrashAvailable(false)}
+            />
+          )}
         </span>
       </span>
     </nav>

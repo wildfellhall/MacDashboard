@@ -874,6 +874,35 @@ input:focus-visible,
   filter: drop-shadow(0 1px 1px rgba(34, 40, 50, 0.24));
 }
 
+.app-icon__native {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  opacity: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.app-icon.has-native-icon {
+  overflow: visible;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-icon.has-native-icon .app-icon__shine,
+.app-icon.has-native-icon .app-icon__glyph {
+  opacity: 0;
+}
+
+.app-icon.has-native-icon .app-icon__native {
+  opacity: 1;
+}
+
 .dock-trash {
   position: relative;
   align-self: center;
@@ -907,6 +936,33 @@ input:focus-visible,
   width: 58%;
   height: 58%;
   filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.5));
+}
+
+.trash-icon__native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  opacity: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trash-icon.has-native-icon {
+  overflow: visible;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.trash-icon.has-native-icon > svg {
+  opacity: 0;
+}
+
+.trash-icon.has-native-icon .trash-icon__native {
+  opacity: 1;
 }
 
 .desktop-hint {

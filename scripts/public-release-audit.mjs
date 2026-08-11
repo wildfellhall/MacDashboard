@@ -19,6 +19,7 @@ const forbiddenFiles = [
   /^node_modules\//,
   /^dist\//,
   /^public\/icons\/.*\.png$/i,
+  /^public\/local-icons\//,
 ];
 const secretPatterns = [
   ["OpenAI-style secret", /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g],

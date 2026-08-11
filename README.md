@@ -103,8 +103,10 @@ Token adds current provider availability for movies and series in
 - a glass `⌘Tab` application switcher that follows active-window z-order,
   labels minimized apps, and restores the selected window on release; the
   Window menu also lists and activates every running app
-- original, redistributable glass app icons built with Lucide glyphs, plus an
-  original translucent Trash treatment
+- the actual installed macOS Messages, Notes, Photos, Books, TV, and Trash
+  artwork when running on a Mac; a local setup step renders those system assets
+  into the git-ignored `public/local-icons` directory, while other platforms use
+  original redistributable Lucide-based fallbacks
 - overlapping windows with active/inactive states, dragging, resizing,
   minimizing, maximizing, closing, full-rectangle viewport containment, unique
   pointer/keyboard focus ordering, container-responsive app layouts, title-bar
@@ -320,6 +322,8 @@ deployment boundary.
 
 MacDashboard source code is available under the [MIT License](LICENSE).
 Interface glyphs come from [Lucide](https://lucide.dev/) under the ISC license.
+Apple icon artwork is loaded only from the user's own macOS installation and is
+never committed or redistributed by this repository.
 Discovery results retain source, creator, and license attribution in the UI;
 third-party catalog metadata and artwork remain subject to their respective
 providers' terms.

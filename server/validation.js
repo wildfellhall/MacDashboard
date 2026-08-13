@@ -4,6 +4,7 @@ export const DASHBOARD_APPS = [
   "notes",
   "tv",
   "messages",
+  "dictionary",
 ];
 export const APP_VIEWS = {
   books: ["discover", "reread", "saved"],

@@ -38,6 +38,11 @@ let sources = [
         usesWorkspaceRendering: true
     ),
     IconSource(
+        name: "dictionary",
+        path: "/System/Applications/Dictionary.app",
+        usesWorkspaceRendering: true
+    ),
+    IconSource(
         name: "trash-empty",
         path: "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/TrashIcon.icns",
         usesWorkspaceRendering: false

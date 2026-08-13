@@ -208,6 +208,7 @@ const APP_IDS = new Set<AppId>([
   "notes",
   "tv",
   "messages",
+  "dictionary",
 ]);
 const APP_VIEWS: Record<"books" | "photos" | "tv", Set<string>> = {
   books: new Set(["discover", "reread", "saved"]),

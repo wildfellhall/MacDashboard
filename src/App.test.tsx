@@ -10,6 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { INITIAL_NOTES } from "./data";
+import { DIAGNOSTIC_WORD_IDS, vocabularyWord } from "./lib/vocabulary";
 
 afterEach(() => {
   cleanup();
@@ -49,17 +50,74 @@ describe("MacDashboard desktop", () => {
     expect(screen.getByLabelText("Notes window")).toBeTruthy();
     expect(screen.getByLabelText("Messages window")).toBeTruthy();
     const dock = screen.getByLabelText("Applications");
-    expect(dock.children.length).toBe(7);
+    expect(dock.children.length).toBe(8);
     expect(
       [...dock.querySelectorAll("[data-app-icon]")].map((icon) =>
         icon.getAttribute("data-app-icon"),
       ),
-    ).toEqual(["messages", "notes", "photos", "books", "tv", "trash"]);
+    ).toEqual([
+      "messages",
+      "notes",
+      "photos",
+      "books",
+      "tv",
+      "dictionary",
+      "trash",
+    ]);
     expect(
       [...dock.querySelectorAll("[data-native-icon]")].map((icon) =>
         icon.getAttribute("data-native-icon"),
       ),
-    ).toEqual(["messages", "notes", "photos", "books", "tv", "trash"]);
+    ).toEqual([
+      "messages",
+      "notes",
+      "photos",
+      "books",
+      "tv",
+      "dictionary",
+      "trash",
+    ]);
+  });
+
+  it("runs the Dictionary diagnostic only once and syncs its words to Notes", async () => {
+    const first = render(<App />);
+    fireEvent.click(screen.getByLabelText("Open Dictionary"));
+
+    expect(screen.getByLabelText("Vocabulary diagnostic")).toBeTruthy();
+    for (const [index, wordId] of DIAGNOSTIC_WORD_IDS.entries()) {
+      const word = vocabularyWord(wordId)!;
+      fireEvent.click(screen.getByRole("button", { name: word.definition }));
+      fireEvent.click(
+        screen.getByRole("button", {
+          name:
+            index === DIAGNOSTIC_WORD_IDS.length - 1
+              ? /See my starting point/i
+              : /Next word/i,
+        }),
+      );
+    }
+
+    expect(await screen.findByText("Rare word of the day")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Synced to Notes/i }));
+    expect(
+      (await screen.findAllByRole("button", { name: /Vocabulary Journal/i }))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("quotidian").length).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem("macdashboard.dictionary.progress.v1") ??
+          "null",
+      );
+      expect(stored?.diagnostic?.completedAt).toBeTruthy();
+    });
+
+    first.unmount();
+    render(<App />);
+    fireEvent.click(screen.getByLabelText("Open Dictionary"));
+    expect(screen.queryByLabelText("Vocabulary diagnostic")).toBeNull();
+    expect(screen.getByText("Rare word of the day")).toBeTruthy();
   });
 
   it("launches a closed app from the dock", () => {

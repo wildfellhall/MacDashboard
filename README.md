@@ -1,7 +1,7 @@
 # MacDashboard (MacCeption)
 
 ## Short Description: 
-A cute little Mac-inspired dashboard for Codex! I had Codex whip most of this up for me, but I did design all of the features and work on a few things where it didn't get the aesthetic quite right. I'll be adding more in the way of recommendations and apps, but it currently features a book/movie recommendation engine, a photo recommendation engine, a notes app that functions as the profile for the recommendations, and a messages assistant. 
+A cute little Mac-inspired dashboard for Codex! I had Codex whip most of this up for me, but I did design all of the features and work on a few things where it didn't get the aesthetic quite right. I'll be adding more in the way of recommendations and apps, but it currently features book/movie and photo recommendation engines, a notes app that functions as the profile for recommendations, a vocabulary-learning Dictionary, and a messages assistant.
 
 # Official Doc
 
@@ -9,7 +9,8 @@ A cute little Mac-inspired dashboard for Codex! I had Codex whip most of this up
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A local-first, AI-powered personal dashboard with a macOS-inspired desktop and
-five connected app experiences: Notes, Messages, Books, Photos, and TV.
+six connected app experiences: Notes, Messages, Books, Photos, TV, and
+Dictionary.
 
 MacDashboard turns the Notes that exist now—not deleted snapshots or a single
 favorite title—into inspectable recommendation evidence. AI proposes varied
@@ -30,6 +31,8 @@ ships with the repository.
 | Books recommendations | Photo discovery |
 | --- | --- |
 | ![Books recommendation window](docs/screenshots/books-recommendations.png) | ![Photos discovery window](docs/screenshots/photo-discovery.png) |
+
+![Dictionary rare-word diagnostic](docs/screenshots/dictionary-diagnostic.png)
 
 ## Quick start
 
@@ -103,7 +106,8 @@ Token adds current provider availability for movies and series in
 - a glass `⌘Tab` application switcher that follows active-window z-order,
   labels minimized apps, and restores the selected window on release; the
   Window menu also lists and activates every running app
-- the actual installed macOS Messages, Notes, Photos, Books, TV, and Trash
+- the actual installed macOS Messages, Notes, Photos, Books, TV, Dictionary,
+  and Trash
   artwork when running on a Mac; a local setup step renders those system assets
   into the git-ignored `public/local-icons` directory, while other platforms use
   original redistributable Lucide-based fallbacks
@@ -149,8 +153,12 @@ Token adds current provider availability for movies and series in
   verified across Apple and TVmaze, service badges and links, platform
   filtering, optional TMDB/JustWatch movie and series availability, and opt-in
   parsing of Netflix-style CSV and Prime-style JSON history exports
+- Dictionary with a first-opening-only eight-word placement diagnostic, a
+  level-aware rare Word of the Day, searchable rare-word entries, alternating
+  meaning and context exercises, durable mastery states, and an automatically
+  maintained Vocabulary Journal inside Notes
 
-Keyboard shortcuts `⌘1` through `⌘5` open the five main apps. `⌘Tab` cycles
+Keyboard shortcuts `⌘1` through `⌘6` open the six main apps. `⌘Tab` cycles
 between running apps, including minimized ones.
 
 ## Personalization

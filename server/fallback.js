@@ -6,6 +6,7 @@ const APP_LABELS = {
   notes: "Notes",
   tv: "TV",
   messages: "Messages",
+  dictionary: "Dictionary",
 };
 
 const latestUserMessage = (messages) =>
@@ -20,6 +21,7 @@ const requestedApp = (text) => {
     notes: /\b(note|notes|preference|preferences)\b/,
     tv: /\b(tv|television|movie|movies|series|watch|watching)\b/,
     messages: /\b(message|messages|chat)\b/,
+    dictionary: /\b(dictionary|vocabulary|word|words|definition|define)\b/,
   };
   return DASHBOARD_APPS.find((app) => aliases[app].test(normalized));
 };

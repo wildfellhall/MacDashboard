@@ -1,6 +1,7 @@
 import {
   Aperture,
   BookOpen,
+  BookOpenText,
   MessageCircle,
   StickyNote,
   Tv,
@@ -20,6 +21,7 @@ const APP_GLYPHS: Record<AppId, LucideIcon> = {
   photos: Aperture,
   books: BookOpen,
   tv: Tv,
+  dictionary: BookOpenText,
 };
 
 export function AppIcon({ appId, size = "large" }: Props) {

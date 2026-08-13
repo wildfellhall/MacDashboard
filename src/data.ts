@@ -38,6 +38,12 @@ export const APPS: AppMeta[] = [
     subtitle: "Watch with intention",
     color: "#151518",
   },
+  {
+    id: "dictionary",
+    name: "Dictionary",
+    subtitle: "Grow your vocabulary",
+    color: "#bc302c",
+  },
 ];
 
 export const INITIAL_NOTES: Note[] = [

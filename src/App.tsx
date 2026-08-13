@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BooksApp } from "./apps/BooksApp";
+import { DictionaryApp } from "./apps/DictionaryApp";
 import { MessagesApp } from "./apps/MessagesApp";
 import { NotesApp } from "./apps/NotesApp";
 import { PhotosApp } from "./apps/PhotosApp";
@@ -84,6 +85,11 @@ import {
   type RecommendationPlanCandidate,
 } from "./lib/recommendationPlanner";
 import { plannedCandidateFor } from "./lib/recommendationPortfolio";
+import {
+  buildVocabularyJournalNote,
+  VOCABULARY_JOURNAL_ID,
+  type VocabularyProgress,
+} from "./lib/vocabulary";
 import type {
   AppCommand,
   AppId,
@@ -246,7 +252,11 @@ const makeInitialWindows = (): Partial<Record<AppId, WindowState>> => {
 };
 
 const defaultSize = (appId: AppId, offset: number): WindowState => {
-  const wide = appId === "photos" || appId === "tv" || appId === "books";
+  const wide =
+    appId === "photos" ||
+    appId === "tv" ||
+    appId === "books" ||
+    appId === "dictionary";
   const width = Math.min(window.innerWidth - 96, wide ? 1120 : 900);
   const height = Math.min(window.innerHeight - 120, wide ? 680 : 620);
   return {
@@ -1610,6 +1620,37 @@ function App() {
     openApp("notes");
   }, [openApp]);
 
+  const syncVocabularyJournal = useCallback(
+    (progress: VocabularyProgress) => {
+      if (!progress.diagnostic && progress.encounters.length === 0) return;
+      const journal = buildVocabularyJournalNote(progress);
+      setNotes((current) => {
+        const existing = current.find(
+          (note) => note.id === VOCABULARY_JOURNAL_ID,
+        );
+        if (
+          existing?.content === journal.content &&
+          existing.updatedAt === journal.updatedAt
+        ) {
+          return current;
+        }
+        return existing
+          ? current.map((note) =>
+              note.id === VOCABULARY_JOURNAL_ID
+                ? { ...note, ...journal }
+                : note,
+            )
+          : [journal, ...current];
+      });
+    },
+    [setNotes],
+  );
+
+  const openVocabularyJournal = useCallback(() => {
+    setSelectedNoteId(VOCABULARY_JOURNAL_ID);
+    openApp("notes");
+  }, [openApp]);
+
   const acceptPreferenceSuggestion = useCallback(
     (messageId: string) => {
       const source = messages.find((message) => message.id === messageId);
@@ -1999,6 +2040,7 @@ function App() {
         "3": "photos",
         "4": "books",
         "5": "tv",
+        "6": "dictionary",
       };
       const appId = keyMap[event.key];
       if (appId) {
@@ -2148,6 +2190,13 @@ function App() {
             }
           />
         );
+      case "dictionary":
+        return (
+          <DictionaryApp
+            onProgressChange={syncVocabularyJournal}
+            onOpenVocabularyJournal={openVocabularyJournal}
+          />
+        );
     }
   };
 
@@ -2225,7 +2274,7 @@ function App() {
               : "Local mode"}
         {personalization.eventCount > 0 &&
           ` · ${personalization.eventCount} taste signals`}
-        {" · ⌘1–5 opens · ⌘Tab switches"}
+        {" · ⌘1–6 opens · ⌘Tab switches"}
       </div>
     </div>
   );

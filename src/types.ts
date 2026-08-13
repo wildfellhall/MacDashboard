@@ -1,4 +1,10 @@
-export type AppId = "books" | "photos" | "notes" | "tv" | "messages";
+export type AppId =
+  | "books"
+  | "photos"
+  | "notes"
+  | "tv"
+  | "messages"
+  | "dictionary";
 
 export type AppMeta = {
   id: AppId;

@@ -235,6 +235,404 @@ const isValidPreferenceSuggestion = (value: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const cleanText = (value: unknown, maximum: number) =>
+  typeof value === "string" ? value.trim().slice(0, maximum) : "";
+
+const cleanTextArray = (
+  value: unknown,
+  maximumItems: number,
+  maximumCharacters: number,
+) =>
+  Array.isArray(value)
+    ? [
+        ...new Set(
+          value
+            .map((item) => cleanText(item, maximumCharacters))
+            .filter(Boolean),
+        ),
+      ].slice(0, maximumItems)
+    : [];
+
+const cleanOptionalNumber = (
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  integer = false,
+) =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= minimum &&
+  value <= maximum &&
+  (!integer || Number.isInteger(value))
+    ? value
+    : undefined;
+
+const validDateText = (value: unknown) => {
+  const text = cleanText(value, 80);
+  return text && !Number.isNaN(new Date(text).getTime()) ? text : "";
+};
+
+const MESSAGE_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const MESSAGE_IMAGE_SIGNATURES: Record<string, RegExp> = {
+  "image/jpeg": /^\/9j\//,
+  "image/png": /^iVBORw0KGgo/,
+  "image/webp": /^UklGR/,
+  "image/gif": /^R0lGOD/,
+};
+const ASSISTANT_APPS = new Set<AppId>([
+  "books",
+  "photos",
+  "notes",
+  "tv",
+  "messages",
+  "dictionary",
+]);
+const FEEDBACK_KINDS = new Set([
+  "opened",
+  "saved",
+  "liked",
+  "downloaded",
+  "dismissed",
+]);
+const TASTE_POLARITIES = new Set(["positive", "negative", "curious"]);
+const TASTE_DOMAINS = new Set(["general", "books", "tv", "photos"]);
+const RECOMMENDATION_APPS = new Set(["books", "photos", "tv"]);
+
+const prepareMessages = (value: unknown): AssistantMessage[] => {
+  if (!Array.isArray(value)) return [];
+  let remainingCharacters = 20_000;
+  const messages: AssistantMessage[] = [];
+  for (const candidate of [...value].slice(-12).reverse()) {
+    if (!isRecord(candidate) || remainingCharacters < 1) continue;
+    if (candidate.role !== "user" && candidate.role !== "assistant") continue;
+    const content = cleanText(
+      candidate.content,
+      Math.min(4_000, remainingCharacters),
+    );
+    if (!content) continue;
+    remainingCharacters -= content.length;
+    const image = candidate.image;
+    const mimeType = isRecord(image) ? cleanText(image.mimeType, 32) : "";
+    const dataUrl = isRecord(image) && typeof image.dataUrl === "string"
+      ? image.dataUrl.trim()
+      : "";
+    const name = isRecord(image) ? cleanText(image.name, 160) : "";
+    const imagePrefix = mimeType ? `data:${mimeType};base64,` : "";
+    const encoded = imagePrefix && dataUrl.startsWith(imagePrefix)
+      ? dataUrl.slice(imagePrefix.length)
+      : "";
+    const hasBoundedImage =
+      candidate.role === "user" &&
+      MESSAGE_IMAGE_TYPES.has(mimeType) &&
+      Boolean(name && encoded) &&
+      dataUrl.length <= 2_700_000 &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(encoded) &&
+      MESSAGE_IMAGE_SIGNATURES[mimeType]?.test(encoded) === true &&
+      Math.floor((encoded.length * 3) / 4) <= 2_000_000;
+    messages.unshift({
+      role: candidate.role,
+      content,
+      ...(hasBoundedImage
+        ? {
+            image: {
+              name,
+              mimeType: mimeType as NonNullable<
+                AssistantMessage["image"]
+              >["mimeType"],
+              dataUrl,
+            },
+          }
+        : {}),
+    });
+  }
+  return messages;
+};
+
+export const prepareAssistantRequest = (
+  payload: AssistantRequest,
+): AssistantRequest => {
+  const notes: AssistantNoteMetadata[] = [];
+  const notesByOriginalId = new Map<string, AssistantNoteMetadata>();
+  const cleanNoteIds = new Set<string>();
+  if (Array.isArray(payload.notes)) {
+    for (const candidate of payload.notes) {
+      if (notes.length >= 50) break;
+      if (!isRecord(candidate)) continue;
+      const originalId = cleanText(candidate.id, 10_000);
+      const id = cleanText(candidate.id, 120);
+      const title = cleanText(candidate.title, 240);
+      if (!originalId || !id || !title || cleanNoteIds.has(id)) continue;
+      const note: AssistantNoteMetadata = {
+        id,
+        title,
+        folder: cleanText(candidate.folder, 120),
+        ...(cleanText(candidate.updatedAt, 80)
+          ? { updatedAt: cleanText(candidate.updatedAt, 80) }
+          : {}),
+        ...(typeof candidate.pinned === "boolean"
+          ? { pinned: candidate.pinned }
+          : {}),
+        ...(typeof candidate.hasSketch === "boolean"
+          ? { hasSketch: candidate.hasSketch }
+          : {}),
+      };
+      notes.push(note);
+      cleanNoteIds.add(id);
+      notesByOriginalId.set(originalId, note);
+    }
+  }
+
+  const relevantNotes: AssistantRelevantNote[] = [];
+  const relevantIds = new Set<string>();
+  if (Array.isArray(payload.relevantNotes)) {
+    for (const candidate of payload.relevantNotes) {
+      if (relevantNotes.length >= 4) break;
+      if (!isRecord(candidate)) continue;
+      const note = notesByOriginalId.get(cleanText(candidate.id, 10_000));
+      const excerpt = cleanText(candidate.excerpt, 600);
+      if (!note || !excerpt || relevantIds.has(note.id)) continue;
+      relevantIds.add(note.id);
+      relevantNotes.push({
+        id: note.id,
+        title: note.title,
+        folder: note.folder ?? "",
+        excerpt,
+        matchedTerms: cleanTextArray(candidate.matchedTerms, 10, 80),
+      });
+    }
+  }
+
+  const evidence: TasteDossier["evidence"] = [];
+  const rawEvidence = isRecord(payload.tasteDossier) &&
+    Array.isArray(payload.tasteDossier.evidence)
+    ? payload.tasteDossier.evidence
+    : [];
+  for (const candidate of rawEvidence) {
+    if (evidence.length >= 80) break;
+    if (!isRecord(candidate)) continue;
+    const note = notesByOriginalId.get(cleanText(candidate.noteId, 10_000));
+    const passage = cleanText(candidate.passage, 360);
+    const concepts = cleanTextArray(candidate.concepts, 20, 80);
+    const domains = cleanTextArray(candidate.domains, 4, 16).filter((domain) =>
+      TASTE_DOMAINS.has(domain),
+    ) as TasteDossier["evidence"][number]["domains"];
+    if (
+      !note ||
+      !passage ||
+      !concepts.length ||
+      !domains.length ||
+      !TASTE_POLARITIES.has(String(candidate.polarity)) ||
+      !Number.isInteger(candidate.strength) ||
+      Number(candidate.strength) < 1 ||
+      Number(candidate.strength) > 5
+    ) {
+      continue;
+    }
+    evidence.push({
+      noteId: note.id,
+      noteTitle: note.title,
+      folder: (note.folder ?? "") as TasteDossier["evidence"][number]["folder"],
+      passage,
+      polarity: candidate.polarity as TasteDossier["evidence"][number]["polarity"],
+      strength: Number(candidate.strength),
+      domains,
+      concepts,
+      updatedAt: cleanText(candidate.updatedAt, 80),
+    });
+  }
+  const tasteDossier: TasteDossier = {
+    currentNoteCount: notes.length,
+    evidenceNoteCount: new Set(evidence.map((item) => item.noteId)).size,
+    evidenceCount: evidence.length,
+    evidence,
+  };
+
+  const tasteSignals: AssistantTasteSignal[] = Array.isArray(payload.tasteSignals)
+    ? payload.tasteSignals.flatMap((candidate) => {
+        if (!isRecord(candidate)) return [];
+        const targetTitle = cleanText(candidate.targetTitle, 240);
+        const timestamp = cleanText(candidate.timestamp, 80);
+        if (
+          !ASSISTANT_APPS.has(candidate.appId as AppId) ||
+          !FEEDBACK_KINDS.has(String(candidate.kind)) ||
+          !targetTitle ||
+          !timestamp
+        ) {
+          return [];
+        }
+        return [{
+          appId: candidate.appId as AppId,
+          targetTitle,
+          tags: cleanTextArray(candidate.tags, 16, 120),
+          kind: candidate.kind as AssistantTasteSignal["kind"],
+          timestamp,
+        }];
+      }).slice(-30)
+    : [];
+
+  const reviews: AssistantReview[] = Array.isArray(payload.reviews)
+    ? payload.reviews.flatMap((candidate) => {
+        if (!isRecord(candidate)) return [];
+        const title = cleanText(candidate.title, 240);
+        const reviewedAt = cleanText(candidate.reviewedAt, 80);
+        if (!title || !reviewedAt) return [];
+        const rating = cleanOptionalNumber(candidate.rating, 0, 5);
+        const minutes = cleanOptionalNumber(candidate.minutes, 0, 1_000_000, true);
+        return [{
+          title,
+          reviewedAt,
+          ...(rating !== undefined ? { rating } : {}),
+          ...(minutes !== undefined ? { minutes } : {}),
+        }];
+      }).slice(0, 30)
+    : [];
+
+  const bookHistory: AssistantBookHistory[] = Array.isArray(payload.bookHistory)
+    ? payload.bookHistory.flatMap((candidate) => {
+        if (!isRecord(candidate)) return [];
+        const title = cleanText(candidate.title, 240);
+        if (!title) return [];
+        const author = cleanText(candidate.author, 180);
+        const rating = cleanOptionalNumber(candidate.rating, 0, 5);
+        const minutes = cleanOptionalNumber(candidate.minutes, 0, 1_000_000, true);
+        const readAt = validDateText(candidate.readAt);
+        return [{
+          title,
+          shelves: cleanTextArray(candidate.shelves, 16, 120),
+          ...(author ? { author } : {}),
+          ...(rating !== undefined ? { rating } : {}),
+          ...(minutes !== undefined ? { minutes } : {}),
+          ...(readAt ? { readAt } : {}),
+        }];
+      }).slice(0, 100)
+    : [];
+
+  const recommendations: AssistantRecommendation[] = [];
+  const recommendationIds = new Set<string>();
+  if (Array.isArray(payload.recommendations)) {
+    for (const candidate of payload.recommendations) {
+      if (recommendations.length >= 30) break;
+      if (!isRecord(candidate)) continue;
+      const appId = cleanText(candidate.appId, 16);
+      const itemId = cleanText(candidate.itemId, 120);
+      const title = cleanText(candidate.title, 240);
+      const kind = cleanText(candidate.kind, 80);
+      const score = cleanOptionalNumber(candidate.score, 0, 100);
+      const key = `${appId}:${itemId}`;
+      if (
+        !RECOMMENDATION_APPS.has(appId) ||
+        !itemId ||
+        !title ||
+        !kind ||
+        score === undefined ||
+        recommendationIds.has(key)
+      ) {
+        continue;
+      }
+      recommendationIds.add(key);
+      const description = cleanText(candidate.description, 700);
+      const evidenceSummary = cleanText(candidate.evidenceSummary, 600);
+      const sourceNotes = cleanTextArray(candidate.sourceNotes, 5, 240);
+      recommendations.push({
+        appId: appId as AssistantRecommendation["appId"],
+        itemId,
+        title,
+        kind,
+        score,
+        tags: cleanTextArray(candidate.tags, 16, 120),
+        ...(description ? { description } : {}),
+        ...(evidenceSummary ? { evidenceSummary } : {}),
+        ...(sourceNotes.length ? { sourceNotes } : {}),
+      });
+    }
+  }
+
+  const activeApp = ASSISTANT_APPS.has(payload.activeApp as AppId)
+    ? payload.activeApp
+    : undefined;
+  const activeSelectionApp = cleanText(payload.activeSelection?.appId, 16);
+  const activeSelectionId = cleanText(payload.activeSelection?.itemId, 120);
+  const selectedRecommendation = recommendations.find(
+    (item) =>
+      item.appId === activeSelectionApp && item.itemId === activeSelectionId,
+  );
+
+  const localPhoto = isRecord(payload.localPhotoSignals)
+    ? payload.localPhotoSignals
+    : null;
+  const photoFileCount = cleanOptionalNumber(localPhoto?.fileCount, 1, 120, true);
+  const photoImportedAt = validDateText(localPhoto?.importedAt);
+  const photoTags = cleanTextArray(localPhoto?.tags, 16, 120);
+  const photoPalette = cleanTextArray(
+    localPhoto?.palette,
+    Math.max(0, 16 - photoTags.length),
+    120,
+  );
+
+  const localChat = isRecord(payload.localChatSignals)
+    ? payload.localChatSignals
+    : null;
+  const chatMessageCount = cleanOptionalNumber(
+    localChat?.messageCount,
+    1,
+    5_000,
+    true,
+  );
+  const chatImportedAt = validDateText(localChat?.importedAt);
+  const chatTopics = cleanTextArray(localChat?.topics, 12, 120);
+
+  return {
+    messages: prepareMessages(payload.messages),
+    profile: {
+      interests: cleanTextArray(payload.profile?.interests, 30, 200),
+      moods: cleanTextArray(payload.profile?.moods, 30, 200),
+      favorites: cleanTextArray(payload.profile?.favorites, 30, 200),
+      avoid: cleanTextArray(payload.profile?.avoid, 30, 200),
+    },
+    ...(activeApp ? { activeApp } : {}),
+    notes,
+    relevantNotes,
+    tasteDossier,
+    tasteSignals,
+    reviews,
+    bookHistory,
+    ...(photoFileCount !== undefined && photoImportedAt
+      ? {
+          localPhotoSignals: {
+            fileCount: photoFileCount,
+            tags: photoTags,
+            palette: photoPalette,
+            importedAt: photoImportedAt,
+          },
+        }
+      : {}),
+    ...(chatMessageCount !== undefined && chatImportedAt && chatTopics.length
+      ? {
+          localChatSignals: {
+            messageCount: chatMessageCount,
+            topics: chatTopics,
+            importedAt: chatImportedAt,
+          },
+        }
+      : {}),
+    recommendations,
+    ...(selectedRecommendation
+      ? {
+          activeSelection: {
+            appId: selectedRecommendation.appId,
+            itemId: selectedRecommendation.itemId,
+            title: selectedRecommendation.title,
+          },
+        }
+      : {}),
+  };
+};
+
 const parseActions = (value: unknown): DashboardAction[] => {
   if (!Array.isArray(value)) return [];
 
@@ -476,7 +874,7 @@ export const sendAssistantRequest = async (
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(prepareAssistantRequest(payload)),
       signal,
     });
   } catch (error) {

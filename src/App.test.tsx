@@ -2116,7 +2116,13 @@ describe("MacDashboard desktop", () => {
     const input = container.querySelector<HTMLInputElement>(
       'input[type="file"][accept="image/*"]',
     );
-    const file = new File(["small image"], "quiet-room.png", {
+    const pngBytes = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6ZFYAAAAASUVORK5CYII=",
+      ),
+      (character) => character.charCodeAt(0),
+    );
+    const file = new File([pngBytes], "quiet-room.png", {
       type: "image/png",
     });
 

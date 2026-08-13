@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAssistantConfig,
+  prepareAssistantRequest,
   resetCodexThread,
   sendAssistantRequest,
   type AssistantRequest,
@@ -25,6 +26,162 @@ afterEach(() => {
 });
 
 describe("assistant client failure boundary", () => {
+  it("normalizes stale persisted context into the current assistant boundary", () => {
+    const longNoteId = `note-${"x".repeat(180)}`;
+    const prepared = prepareAssistantRequest({
+      messages: [
+        {
+          role: "user",
+          content: "Old message with a corrupt cached attachment",
+          image: {
+            name: "corrupt.png",
+            mimeType: "image/png",
+            dataUrl: "data:image/png;base64,bm90LWEtcG5n",
+          },
+        },
+        ...Array.from({ length: 14 }, (_, index) => ({
+          role: index % 2 ? "assistant" as const : "user" as const,
+          content: `Earlier message ${index}`,
+        })),
+        { role: "user", content: "  What should I read next?  " },
+      ],
+      profile: {
+        interests: ["literary fiction", " ", ...Array(40).fill("quiet")],
+        moods: [],
+        favorites: [],
+        avoid: [],
+      },
+      notes: [
+        {
+          id: longNoteId,
+          title: `Favorites ${"y".repeat(300)}`,
+          folder: "Personal",
+          updatedAt: "2026-08-13T12:00:00.000Z",
+        },
+      ],
+      relevantNotes: [
+        {
+          id: longNoteId,
+          title: "stale title is replaced",
+          folder: "Personal",
+          excerpt: `I love romantic classics. ${"z".repeat(700)}`,
+          matchedTerms: [...Array(14).fill("romantic classics")],
+        },
+      ],
+      tasteDossier: {
+        currentNoteCount: 999,
+        evidenceNoteCount: 999,
+        evidenceCount: 999,
+        evidence: [
+          {
+            noteId: longNoteId,
+            noteTitle: "stale title is replaced",
+            folder: "Personal",
+            passage: "I love romantic classics with emotionally perceptive heroines.",
+            polarity: "positive",
+            strength: 5,
+            domains: ["books"],
+            concepts: [...Array(24).fill("romantic classic")],
+            updatedAt: "2026-08-13T12:00:00.000Z",
+          },
+        ],
+      },
+      tasteSignals: [
+        {
+          appId: "books",
+          targetTitle: "Pride and Prejudice",
+          tags: Array.from({ length: 24 }, (_, index) => `tag-${index}`),
+          kind: "liked",
+          timestamp: "2026-08-13T12:00:00.000Z",
+        },
+      ],
+      reviews: [
+        {
+          title: "Emma",
+          rating: 9,
+          minutes: -4,
+          reviewedAt: "2026-08-13T12:00:00.000Z",
+        },
+      ],
+      bookHistory: [
+        {
+          title: "Persuasion",
+          shelves: Array.from({ length: 30 }, (_, index) => `shelf-${index}`),
+          readAt: "not-a-date",
+        },
+      ],
+      localPhotoSignals: {
+        fileCount: 12,
+        tags: Array.from({ length: 12 }, (_, index) => `tag-${index}`),
+        palette: Array.from({ length: 12 }, (_, index) => `tone-${index}`),
+        importedAt: "2026-08-13T12:00:00.000Z",
+      },
+      localChatSignals: {
+        messageCount: 0,
+        topics: [],
+        importedAt: "not-a-date",
+      },
+      recommendations: [
+        {
+          appId: "books",
+          itemId: "jane-eyre",
+          title: "Jane Eyre",
+          kind: "discover",
+          score: 94,
+          tags: Array.from({ length: 24 }, (_, index) => `tag-${index}`),
+          description: " ",
+          evidenceSummary: " ",
+          sourceNotes: ["", "Favorite books", "Favorite books"],
+        },
+      ],
+      activeSelection: {
+        appId: "books",
+        itemId: "jane-eyre",
+        title: "stale title",
+      },
+    });
+
+    expect(prepared.messages).toHaveLength(12);
+    expect(prepared.messages.every((message) => !message.image)).toBe(true);
+    expect(prepared.messages.at(-1)?.content).toBe("What should I read next?");
+    expect(prepared.profile.interests).toEqual(["literary fiction", "quiet"]);
+    expect(prepared.notes?.[0].id).toHaveLength(120);
+    expect(prepared.notes?.[0].title).toHaveLength(240);
+    expect(prepared.relevantNotes?.[0]).toMatchObject({
+      id: prepared.notes?.[0].id,
+      title: prepared.notes?.[0].title,
+      folder: "Personal",
+    });
+    expect(prepared.relevantNotes?.[0].excerpt).toHaveLength(600);
+    expect(prepared.tasteDossier).toMatchObject({
+      currentNoteCount: 1,
+      evidenceNoteCount: 1,
+      evidenceCount: 1,
+    });
+    expect(prepared.tasteDossier?.evidence[0]).toMatchObject({
+      noteId: prepared.notes?.[0].id,
+      noteTitle: prepared.notes?.[0].title,
+    });
+    expect(prepared.tasteSignals?.[0].tags).toHaveLength(16);
+    expect(prepared.reviews?.[0]).not.toHaveProperty("rating");
+    expect(prepared.reviews?.[0]).not.toHaveProperty("minutes");
+    expect(prepared.bookHistory?.[0].shelves).toHaveLength(16);
+    expect(prepared.bookHistory?.[0]).not.toHaveProperty("readAt");
+    expect(
+      (prepared.localPhotoSignals?.tags.length ?? 0) +
+        (prepared.localPhotoSignals?.palette.length ?? 0),
+    ).toBe(16);
+    expect(prepared).not.toHaveProperty("localChatSignals");
+    expect(prepared.recommendations?.[0]).not.toHaveProperty("description");
+    expect(prepared.recommendations?.[0]).not.toHaveProperty("evidenceSummary");
+    expect(prepared.recommendations?.[0].sourceNotes).toEqual(["Favorite books"]);
+    expect(prepared.activeSelection).toEqual({
+      appId: "books",
+      itemId: "jane-eyre",
+      title: "Jane Eyre",
+    });
+  });
+
   it("accepts a structured result from a persistent Codex thread", async () => {
     vi.stubGlobal(
       "fetch",

@@ -155,8 +155,9 @@ Token adds current provider availability for movies and series in
   parsing of Netflix-style CSV and Prime-style JSON history exports
 - Dictionary with a first-opening-only eight-word placement diagnostic, a
   level-aware rare Word of the Day, searchable rare-word entries, alternating
-  meaning and context exercises, durable mastery states, and an automatically
-  maintained Vocabulary Journal inside Notes
+  meaning and context exercises, a teach-before-test entry for every word not
+  explicitly known, durable mastery states, and an automatically maintained
+  Vocabulary Journal inside Notes
 
 Keyboard shortcuts `⌘1` through `⌘6` open the six main apps. `⌘Tab` cycles
 between running apps, including minimized ones.

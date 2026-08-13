@@ -1,11 +1,10 @@
 import {
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   Check,
   ChevronRight,
-  GraduationCap,
-  Library,
   Search,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { usePersistentState } from "../hooks/usePersistentState";
@@ -16,6 +15,7 @@ import {
   definitionOptions,
   diagnosticResult,
   nextPracticeWord,
+  practiceNeedsIntroduction,
   recordVocabularyEncounter,
   vocabularyWord,
   wordOfTheDay,
@@ -76,6 +76,9 @@ export function DictionaryApp({
   const [view, setView] = useState<DictionaryView>("today");
   const [query, setQuery] = useState("");
   const [lookupWordId, setLookupWordId] = useState<string | null>(null);
+  const [definitionSize, setDefinitionSize] = useState<"small" | "regular" | "large">(
+    "regular",
+  );
   const [diagnosticIndex, setDiagnosticIndex] = useState(0);
   const [diagnosticSelection, setDiagnosticSelection] = useState<string | null>(
     null,
@@ -103,6 +106,10 @@ export function DictionaryApp({
       : contextOptions(practiceWord);
   const practiceCorrect =
     practiceKind === "definition" ? practiceWord.definition : practiceWord.word;
+  const needsIntroduction = practiceNeedsIntroduction(
+    progress,
+    practiceWord.id,
+  );
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -127,6 +134,7 @@ export function DictionaryApp({
     setProgress((current) =>
       recordVocabularyEncounter(current, dailyWord.id, "word-of-day", {
         status: encounter?.status ?? "learning",
+        taught: true,
       }),
     );
   }, [dailyWord.id, progress.diagnostic, progress.encounters, setProgress]);
@@ -168,7 +176,10 @@ export function DictionaryApp({
 
   const updateDisplayedWord = (status: VocabularyStatus) => {
     setProgress((current) =>
-      recordVocabularyEncounter(current, displayedWord.id, "lookup", { status }),
+      recordVocabularyEncounter(current, displayedWord.id, "lookup", {
+        status,
+        taught: true,
+      }),
     );
   };
 
@@ -179,6 +190,7 @@ export function DictionaryApp({
     setProgress((current) =>
       recordVocabularyEncounter(current, word.id, "lookup", {
         status: "learning",
+        taught: true,
       }),
     );
   };
@@ -204,6 +216,30 @@ export function DictionaryApp({
       };
     });
     setPracticeAnswered(true);
+  };
+
+  const beginPractice = () => {
+    setProgress((current) =>
+      recordVocabularyEncounter(current, practiceWord.id, "practice", {
+        status: "learning",
+        taught: true,
+      }),
+    );
+  };
+
+  const markPracticeKnown = () => {
+    const next = recordVocabularyEncounter(
+      progress,
+      practiceWord.id,
+      "practice",
+      { status: "familiar", taught: true },
+    );
+    const nextRound = practiceRound + 1;
+    setProgress(next);
+    setPracticeRound(nextRound);
+    setPracticeWordId(nextPracticeWord(next, nextRound).id);
+    setPracticeSelection(null);
+    setPracticeAnswered(false);
   };
 
   const nextPractice = () => {
@@ -287,78 +323,110 @@ export function DictionaryApp({
 
   return (
     <div className="dictionary-app">
-      <aside className="dictionary-sidebar">
-        <div className="dictionary-brand">
-          <span className="dictionary-brand__mark" aria-hidden="true">
-            <BookOpen />
-          </span>
-          <div>
-            <strong>Dictionary</strong>
-            <small>Words worth keeping</small>
-          </div>
+      <header className="dictionary-toolbar">
+        <div className="dictionary-history-controls" aria-label="Lookup history">
+          <button type="button" aria-label="Previous lookup" disabled>
+            <ArrowLeft size={17} />
+          </button>
+          <button type="button" aria-label="Next lookup" disabled>
+            <ArrowRight size={17} />
+          </button>
+        </div>
+        <div className="dictionary-toolbar__spacer" />
+        <div className="dictionary-type-controls" aria-label="Definition text size">
+          <button
+            type="button"
+            aria-label="Make text smaller"
+            disabled={definitionSize === "small"}
+            onClick={() =>
+              setDefinitionSize((current) =>
+                current === "large" ? "regular" : "small",
+              )
+            }
+          >
+            A
+          </button>
+          <button
+            type="button"
+            aria-label="Make text larger"
+            disabled={definitionSize === "large"}
+            onClick={() =>
+              setDefinitionSize((current) =>
+                current === "small" ? "regular" : "large",
+              )
+            }
+          >
+            A
+          </button>
         </div>
         <div className="dictionary-search">
-          <Search size={14} aria-hidden="true" />
+          <Search size={15} aria-hidden="true" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search rare words"
+            placeholder="Search"
             aria-label="Search rare words"
           />
+          {results.length > 0 && (
+            <div className="dictionary-search-results">
+              {results.map((word) => (
+                <button
+                  type="button"
+                  key={word.id}
+                  onClick={() => selectLookup(word)}
+                >
+                  <strong>{word.word}</strong>
+                  <span>{word.plainDefinition}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {results.length > 0 && (
-          <div className="dictionary-search-results">
-            {results.map((word) => (
-              <button type="button" key={word.id} onClick={() => selectLookup(word)}>
-                <strong>{word.word}</strong>
-                <span>{word.plainDefinition}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <nav aria-label="Dictionary sections">
-          <button
-            type="button"
-            className={view === "today" ? "is-selected" : ""}
-            onClick={() => setView("today")}
-          >
-            <Sparkles size={15} /> Today
-          </button>
-          <button
-            type="button"
-            className={view === "learn" ? "is-selected" : ""}
-            onClick={() => setView("learn")}
-          >
-            <GraduationCap size={15} /> Learn
-          </button>
-          <button
-            type="button"
-            className={view === "progress" ? "is-selected" : ""}
-            onClick={() => setView("progress")}
-          >
-            <Library size={15} /> My Words
-          </button>
-        </nav>
-        <div className="dictionary-level-card">
-          <span>Starting point</span>
-          <strong>{progress.diagnostic.label}</strong>
-          <small>
-            Band {progress.diagnostic.band} of 5 · {progress.diagnostic.correct}/
-            {progress.diagnostic.total} known
-          </small>
-        </div>
+      </header>
+      <nav className="dictionary-sourcebar" aria-label="Dictionary sections">
         <button
           type="button"
-          className="dictionary-journal-link"
+          className={view === "today" ? "is-selected" : ""}
+          onClick={() => setView("today")}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          className={view === "today" ? "dictionary-source-active" : ""}
+          onClick={() => setView("today")}
+        >
+          Dictionary
+        </button>
+        <button
+          type="button"
+          className={view === "learn" ? "is-selected" : ""}
+          onClick={() => setView("learn")}
+        >
+          Learn
+        </button>
+        <button
+          type="button"
+          className={view === "progress" ? "is-selected" : ""}
+          onClick={() => setView("progress")}
+        >
+          My Words
+        </button>
+        <button
+          type="button"
+          className="dictionary-note-source"
           onClick={onOpenVocabularyJournal}
         >
-          <Check size={14} /> Synced to Notes
+          Vocabulary Note <Check size={11} />
         </button>
-      </aside>
+      </nav>
 
-      <main className="dictionary-content">
+      <main className={`dictionary-content is-text-${definitionSize}`}>
         {view === "today" && (
           <article className="dictionary-entry">
+            <div className="dictionary-entry-source">
+              <span /> New Oxford American Dictionary
+            </div>
             <header>
               <div>
                 <span className="eyebrow">
@@ -411,81 +479,121 @@ export function DictionaryApp({
         {view === "learn" && (
           <section className="dictionary-learn">
             <header>
-              <span className="eyebrow">Adaptive practice</span>
-              <h1>Learn at the edge of what you know.</h1>
-              <p>
-                Practice prioritizes diagnostic misses, newer words, and the
-                difficulty band just beyond your current vocabulary.
-              </p>
+              <div>
+                <span className="eyebrow">Vocabulary trainer</span>
+                <h1>Learn</h1>
+              </div>
+              <div className="dictionary-session-summary">
+                <span>{progress.diagnostic.label}</span>
+                <strong>Band {progress.diagnostic.band}</strong>
+              </div>
             </header>
-            <div className="dictionary-exercise-card">
-              <div className="dictionary-exercise-meta">
-                <span>Exercise {practiceRound + 1}</span>
-                <span>{practiceKind === "definition" ? "Meaning" : "In context"}</span>
-              </div>
-              {practiceKind === "definition" ? (
-                <>
-                  <h2>What does “{practiceWord.word}” mean?</h2>
-                  <p className="dictionary-pronunciation">
-                    {practiceWord.pronunciation} · {practiceWord.partOfSpeech}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2>Choose the word that completes the sentence.</h2>
-                  <blockquote>
-                    {practiceWord.example.replace(
-                      new RegExp(practiceWord.word, "i"),
-                      "__________",
-                    )}
-                  </blockquote>
-                </>
-              )}
-              <div className="dictionary-practice-options">
-                {practiceChoices.map((choice) => {
-                  const isCorrect = choice === practiceCorrect;
-                  const selected = practiceSelection === choice;
-                  return (
-                    <button
-                      type="button"
-                      key={choice}
-                      onClick={() => setPracticeSelection(choice)}
-                      disabled={practiceAnswered}
-                      className={`${selected ? "is-selected" : ""} ${
-                        practiceAnswered && isCorrect ? "is-correct" : ""
-                      } ${
-                        practiceAnswered && selected && !isCorrect
-                          ? "is-incorrect"
-                          : ""
-                      }`}
-                    >
-                      {choice}
-                    </button>
-                  );
-                })}
-              </div>
-              {practiceAnswered && (
-                <div className="dictionary-feedback" role="status">
-                  <strong>
-                    {practiceSelection === practiceCorrect
-                      ? "Exactly right."
-                      : `The answer is ${practiceCorrect}.`}
-                  </strong>
-                  <p>
-                    {practiceWord.definition} {practiceWord.etymology}
-                  </p>
-                </div>
-              )}
-              <button
-                type="button"
-                className="dictionary-next-button"
-                onClick={practiceAnswered ? nextPractice : answerPractice}
-                disabled={!practiceSelection}
-              >
-                {practiceAnswered ? "Next exercise" : "Check answer"}
-                <ChevronRight size={16} />
-              </button>
+            <div className="dictionary-learning-rule">
+              <span style={{ width: `${Math.min(100, (practiceRound + 1) * 12)}%` }} />
             </div>
+            {needsIntroduction ? (
+              <article className="dictionary-teaching-card" aria-label={`Introduction to ${practiceWord.word}`}>
+                <div className="dictionary-exercise-meta">
+                  <span>New word</span>
+                  <span>Read before practising</span>
+                </div>
+                <span className="dictionary-teaching-kicker">Meet</span>
+                <h2>{practiceWord.word}</h2>
+                <p className="dictionary-pronunciation">
+                  {practiceWord.pronunciation} · {practiceWord.partOfSpeech}
+                </p>
+                <div className="dictionary-teaching-definition">
+                  <span>1</span>
+                  <p>{practiceWord.definition}</p>
+                </div>
+                <blockquote>“{practiceWord.example}”</blockquote>
+                <div className="dictionary-teaching-memory">
+                  <strong>Remember it</strong>
+                  <p>{practiceWord.etymology}</p>
+                </div>
+                <div className="dictionary-teaching-actions">
+                  <button type="button" onClick={markPracticeKnown}>
+                    I already know it
+                  </button>
+                  <button
+                    type="button"
+                    className="dictionary-next-button"
+                    onClick={beginPractice}
+                  >
+                    Practise this word <ChevronRight size={16} />
+                  </button>
+                </div>
+              </article>
+            ) : (
+              <div className="dictionary-exercise-card">
+                <div className="dictionary-exercise-meta">
+                  <span>Application {practiceRound + 1}</span>
+                  <span>{practiceKind === "definition" ? "Meaning" : "In context"}</span>
+                </div>
+                {practiceKind === "definition" ? (
+                  <>
+                    <h2>What does “{practiceWord.word}” mean?</h2>
+                    <p className="dictionary-pronunciation">
+                      {practiceWord.pronunciation} · {practiceWord.partOfSpeech}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2>Choose the word that completes the sentence.</h2>
+                    <blockquote>
+                      {practiceWord.example.replace(
+                        new RegExp(practiceWord.word, "i"),
+                        "__________",
+                      )}
+                    </blockquote>
+                  </>
+                )}
+                <div className="dictionary-practice-options">
+                  {practiceChoices.map((choice) => {
+                    const isCorrect = choice === practiceCorrect;
+                    const selected = practiceSelection === choice;
+                    return (
+                      <button
+                        type="button"
+                        key={choice}
+                        onClick={() => setPracticeSelection(choice)}
+                        disabled={practiceAnswered}
+                        className={`${selected ? "is-selected" : ""} ${
+                          practiceAnswered && isCorrect ? "is-correct" : ""
+                        } ${
+                          practiceAnswered && selected && !isCorrect
+                            ? "is-incorrect"
+                            : ""
+                        }`}
+                      >
+                        {choice}
+                      </button>
+                    );
+                  })}
+                </div>
+                {practiceAnswered && (
+                  <div className="dictionary-feedback" role="status">
+                    <strong>
+                      {practiceSelection === practiceCorrect
+                        ? "Exactly right."
+                        : `The answer is ${practiceCorrect}.`}
+                    </strong>
+                    <p>
+                      {practiceWord.definition} {practiceWord.etymology}
+                    </p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="dictionary-next-button"
+                  onClick={practiceAnswered ? nextPractice : answerPractice}
+                  disabled={!practiceSelection}
+                >
+                  {practiceAnswered ? "Next word" : "Check answer"}
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </section>
         )}
 

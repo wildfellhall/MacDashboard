@@ -29,6 +29,7 @@ export type VocabularyEncounter = {
   status: VocabularyStatus;
   attempts: number;
   correct: number;
+  taughtAt?: string;
 };
 
 export type VocabularyDiagnostic = {
@@ -436,7 +437,12 @@ export const recordVocabularyEncounter = (
   progress: VocabularyProgress,
   wordId: string,
   source: VocabularySource,
-  options: { correct?: boolean; status?: VocabularyStatus; at?: string } = {},
+  options: {
+    correct?: boolean;
+    status?: VocabularyStatus;
+    taught?: boolean;
+    at?: string;
+  } = {},
 ): VocabularyProgress => {
   const at = options.at ?? new Date().toISOString();
   const existing = progress.encounters.find((item) => item.wordId === wordId);
@@ -457,6 +463,7 @@ export const recordVocabularyEncounter = (
         attempts:
           existing.attempts + (typeof options.correct === "boolean" ? 1 : 0),
         correct: existing.correct + (options.correct ? 1 : 0),
+        taughtAt: options.taught ? at : existing.taughtAt,
       }
     : {
         wordId,
@@ -466,6 +473,7 @@ export const recordVocabularyEncounter = (
         status: inferredStatus,
         attempts: typeof options.correct === "boolean" ? 1 : 0,
         correct: options.correct ? 1 : 0,
+        taughtAt: options.taught ? at : undefined,
       };
 
   return {
@@ -474,6 +482,20 @@ export const recordVocabularyEncounter = (
       ? progress.encounters.map((item) => (item.wordId === wordId ? next : item))
       : [...progress.encounters, next],
   };
+};
+
+export const practiceNeedsIntroduction = (
+  progress: VocabularyProgress,
+  wordId: string,
+) => {
+  const encounter = progress.encounters.find((item) => item.wordId === wordId);
+  return (
+    !encounter ||
+    (encounter.status === "learning" &&
+      encounter.taughtAt === undefined &&
+      !encounter.sources.includes("word-of-day") &&
+      !encounter.sources.includes("lookup"))
+  );
 };
 
 const dayNumber = (date: Date) =>

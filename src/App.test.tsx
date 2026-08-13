@@ -98,7 +98,7 @@ describe("MacDashboard desktop", () => {
     }
 
     expect(await screen.findByText("Rare word of the day")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Synced to Notes/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Vocabulary Note/i }));
     expect(
       (await screen.findAllByRole("button", { name: /Vocabulary Journal/i }))
         .length,
@@ -118,6 +118,60 @@ describe("MacDashboard desktop", () => {
     fireEvent.click(screen.getByLabelText("Open Dictionary"));
     expect(screen.queryByLabelText("Vocabulary diagnostic")).toBeNull();
     expect(screen.getByText("Rare word of the day")).toBeTruthy();
+  });
+
+  it("teaches an unknown Learn word before testing its application", async () => {
+    window.localStorage.setItem(
+      "macdashboard.dictionary.progress.v1",
+      JSON.stringify({
+        version: 1,
+        diagnostic: {
+          completedAt: "2026-08-13T12:00:00.000Z",
+          correct: 0,
+          total: 8,
+          band: 1,
+          label: "Word Curious",
+        },
+        encounters: [
+          {
+            wordId: "quotidian",
+            firstSeenAt: "2026-08-13T12:00:00.000Z",
+            lastSeenAt: "2026-08-13T12:00:00.000Z",
+            sources: ["diagnostic"],
+            status: "learning",
+            attempts: 1,
+            correct: 0,
+          },
+        ],
+        practiceStreak: 0,
+        lastPracticeAt: null,
+      }),
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByLabelText("Open Dictionary"));
+    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+
+    const introduction = await screen.findByLabelText(
+      "Introduction to quotidian",
+    );
+    expect(introduction.textContent).toContain(
+      "Occurring every day; ordinary or commonplace.",
+    );
+    expect(
+      screen.queryByRole("heading", {
+        name: "What does “quotidian” mean?",
+      }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Practise this word/i }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "What does “quotidian” mean?",
+      }),
+    ).toBeTruthy();
   });
 
   it("launches a closed app from the dock", () => {

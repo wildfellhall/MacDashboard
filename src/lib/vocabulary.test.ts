@@ -4,6 +4,7 @@ import {
   buildVocabularyJournalNote,
   diagnosticResult,
   nextPracticeWord,
+  practiceNeedsIntroduction,
   recordVocabularyEncounter,
   wordOfTheDay,
 } from "./vocabulary";
@@ -70,5 +71,18 @@ describe("vocabulary learning model", () => {
       { correct: false, at: "2026-08-13T12:00:00.000Z" },
     );
     expect(nextPracticeWord(missed).id).toBe("quotidian");
+    expect(practiceNeedsIntroduction(missed, "quotidian")).toBe(true);
+    const taught = recordVocabularyEncounter(missed, "quotidian", "practice", {
+      taught: true,
+      at: "2026-08-13T12:05:00.000Z",
+    });
+    expect(practiceNeedsIntroduction(taught, "quotidian")).toBe(false);
+    const known = recordVocabularyEncounter(
+      missed,
+      "quotidian",
+      "practice",
+      { status: "familiar" },
+    );
+    expect(practiceNeedsIntroduction(known, "quotidian")).toBe(false);
   });
 });

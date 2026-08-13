@@ -174,6 +174,65 @@ describe("MacDashboard desktop", () => {
     ).toBeTruthy();
   });
 
+  it("retires each answered application question across Dictionary remounts", async () => {
+    window.localStorage.setItem(
+      "macdashboard.dictionary.progress.v1",
+      JSON.stringify({
+        version: 1,
+        diagnostic: {
+          completedAt: "2026-08-13T12:00:00.000Z",
+          correct: 8,
+          total: 8,
+          band: 5,
+          label: "Rare-Word Savant",
+        },
+        encounters: [],
+        practiceStreak: 0,
+        lastPracticeAt: null,
+        answeredQuestionIds: [],
+      }),
+    );
+
+    const first = render(<App />);
+    fireEvent.click(screen.getByLabelText("Open Dictionary"));
+    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+    const introduction = await screen.findByLabelText(/^Introduction to /);
+    fireEvent.click(
+      introduction.querySelector("button.dictionary-next-button")!,
+    );
+    const firstPrompt = document.querySelector(
+      ".dictionary-exercise-card h2",
+    )?.textContent;
+    expect(firstPrompt).toBeTruthy();
+    const answerButtons = document.querySelectorAll(
+      ".dictionary-practice-options button",
+    );
+    fireEvent.click(answerButtons[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Check answer" }));
+    await waitFor(() => {
+      const saved = JSON.parse(
+        window.localStorage.getItem("macdashboard.dictionary.progress.v1")!,
+      );
+      expect(saved.answeredQuestionIds).toHaveLength(1);
+    });
+
+    first.unmount();
+    render(<App />);
+    fireEvent.click(screen.getByLabelText("Open Dictionary"));
+    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+    const secondIntroduction = screen.queryByLabelText(/^Introduction to /);
+    if (secondIntroduction) {
+      fireEvent.click(
+        secondIntroduction.querySelector("button.dictionary-next-button")!,
+      );
+    }
+    const secondPrompt = document.querySelector(
+      ".dictionary-exercise-card h2",
+    )?.textContent;
+    expect(secondPrompt).toBeTruthy();
+    expect(secondPrompt).not.toBe(firstPrompt);
+  });
+
   it("launches a closed app from the dock", () => {
     render(<App />);
 

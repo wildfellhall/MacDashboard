@@ -11,12 +11,16 @@ import { usePersistentState } from "../hooks/usePersistentState";
 import {
   DIAGNOSTIC_WORD_IDS,
   INITIAL_VOCABULARY_PROGRESS,
+  VOCABULARY_QUESTIONS,
   VOCABULARY_WORDS,
+  completedVocabularyQuestionIds,
   definitionOptions,
   diagnosticResult,
-  nextPracticeWord,
+  nextVocabularyQuestion,
   practiceNeedsIntroduction,
   recordVocabularyEncounter,
+  recordVocabularyQuestionAnswer,
+  recordVocabularyWordKnown,
   vocabularyWord,
   wordOfTheDay,
   type VocabularyProgress,
@@ -36,19 +40,6 @@ type DiagnosticAnswer = {
   correct: boolean;
 };
 
-const contextOptions = (word: VocabularyWord) => {
-  const peers = VOCABULARY_WORDS.filter(
-    (candidate) =>
-      candidate.id !== word.id &&
-      Math.abs(candidate.difficulty - word.difficulty) <= 1,
-  )
-    .slice(word.word.length % 3, word.word.length % 3 + 3)
-    .map((candidate) => candidate.word);
-  const options = [word.word, ...peers].slice(0, 4);
-  const shift = word.id.length % options.length;
-  return [...options.slice(shift), ...options.slice(0, shift)];
-};
-
 const statusLabel: Record<VocabularyStatus, string> = {
   learning: "Learning",
   familiar: "Familiar",
@@ -62,7 +53,11 @@ const progressCopy = (progress: VocabularyProgress) => {
   const familiar = progress.encounters.filter(
     (encounter) => encounter.status === "familiar",
   ).length;
-  return { mastered, familiar, learning: progress.encounters.length - mastered - familiar };
+  return {
+    mastered,
+    familiar,
+    learning: progress.encounters.length - mastered - familiar,
+  };
 };
 
 export function DictionaryApp({
@@ -76,9 +71,9 @@ export function DictionaryApp({
   const [view, setView] = useState<DictionaryView>("today");
   const [query, setQuery] = useState("");
   const [lookupWordId, setLookupWordId] = useState<string | null>(null);
-  const [definitionSize, setDefinitionSize] = useState<"small" | "regular" | "large">(
-    "regular",
-  );
+  const [definitionSize, setDefinitionSize] = useState<
+    "small" | "regular" | "large"
+  >("regular");
   const [diagnosticIndex, setDiagnosticIndex] = useState(0);
   const [diagnosticSelection, setDiagnosticSelection] = useState<string | null>(
     null,
@@ -86,11 +81,12 @@ export function DictionaryApp({
   const [diagnosticAnswers, setDiagnosticAnswers] = useState<
     DiagnosticAnswer[]
   >([]);
-  const [practiceRound, setPracticeRound] = useState(0);
-  const [practiceWordId, setPracticeWordId] = useState(
-    () => nextPracticeWord(progress, 0).id,
+  const [practiceQuestionId, setPracticeQuestionId] = useState(
+    () => nextVocabularyQuestion(progress)?.id ?? "",
   );
-  const [practiceSelection, setPracticeSelection] = useState<string | null>(null);
+  const [practiceSelection, setPracticeSelection] = useState<string | null>(
+    null,
+  );
   const [practiceAnswered, setPracticeAnswered] = useState(false);
 
   const diagnosticWord = vocabularyWord(
@@ -98,14 +94,12 @@ export function DictionaryApp({
   )!;
   const dailyWord = wordOfTheDay(new Date(), progress);
   const displayedWord = vocabularyWord(lookupWordId ?? "") ?? dailyWord;
-  const practiceWord = vocabularyWord(practiceWordId) ?? VOCABULARY_WORDS[0];
-  const practiceKind = practiceRound % 2 === 0 ? "definition" : "context";
-  const practiceChoices =
-    practiceKind === "definition"
-      ? definitionOptions(practiceWord)
-      : contextOptions(practiceWord);
-  const practiceCorrect =
-    practiceKind === "definition" ? practiceWord.definition : practiceWord.word;
+  const activePracticeQuestion =
+    VOCABULARY_QUESTIONS.find(
+      (question) => question.id === practiceQuestionId,
+    ) ?? nextVocabularyQuestion(progress);
+  const practiceWord =
+    vocabularyWord(activePracticeQuestion?.wordId ?? "") ?? VOCABULARY_WORDS[0];
   const needsIntroduction = practiceNeedsIntroduction(
     progress,
     practiceWord.id,
@@ -167,7 +161,7 @@ export function DictionaryApp({
         at: now,
       });
     });
-    setPracticeWordId(nextPracticeWord(next, 0).id);
+    setPracticeQuestionId(nextVocabularyQuestion(next)?.id ?? "");
     setProgress(next);
     setDiagnosticSelection(null);
     setDiagnosticAnswers([]);
@@ -197,12 +191,17 @@ export function DictionaryApp({
 
   const answerPractice = () => {
     if (!practiceSelection || practiceAnswered) return;
-    const correct = practiceSelection === practiceCorrect;
+    if (!activePracticeQuestion) return;
+    const correct = practiceSelection === activePracticeQuestion.correct;
     const today = new Date().toISOString().slice(0, 10);
     setProgress((current) => {
       const continued = current.lastPracticeAt?.slice(0, 10) === today;
-      const recorded = recordVocabularyEncounter(
+      const withQuestionRecorded = recordVocabularyQuestionAnswer(
         current,
+        activePracticeQuestion.id,
+      );
+      const recorded = recordVocabularyEncounter(
+        withQuestionRecorded,
         practiceWord.id,
         "practice",
         { correct, status: correct ? "familiar" : "learning" },
@@ -228,24 +227,21 @@ export function DictionaryApp({
   };
 
   const markPracticeKnown = () => {
-    const next = recordVocabularyEncounter(
+    const recorded = recordVocabularyEncounter(
       progress,
       practiceWord.id,
       "practice",
       { status: "familiar", taught: true },
     );
-    const nextRound = practiceRound + 1;
+    const next = recordVocabularyWordKnown(recorded, practiceWord.id);
     setProgress(next);
-    setPracticeRound(nextRound);
-    setPracticeWordId(nextPracticeWord(next, nextRound).id);
+    setPracticeQuestionId(nextVocabularyQuestion(next)?.id ?? "");
     setPracticeSelection(null);
     setPracticeAnswered(false);
   };
 
   const nextPractice = () => {
-    const nextRound = practiceRound + 1;
-    setPracticeRound(nextRound);
-    setPracticeWordId(nextPracticeWord(progress, nextRound).id);
+    setPracticeQuestionId(nextVocabularyQuestion(progress)?.id ?? "");
     setPracticeSelection(null);
     setPracticeAnswered(false);
   };
@@ -253,7 +249,10 @@ export function DictionaryApp({
   if (!progress.diagnostic) {
     const options = definitionOptions(diagnosticWord);
     return (
-      <main className="dictionary-diagnostic" aria-label="Vocabulary diagnostic">
+      <main
+        className="dictionary-diagnostic"
+        aria-label="Vocabulary diagnostic"
+      >
         <section className="dictionary-diagnostic__intro">
           <span className="dictionary-seal" aria-hidden="true">
             <BookOpen />
@@ -324,7 +323,10 @@ export function DictionaryApp({
   return (
     <div className="dictionary-app">
       <header className="dictionary-toolbar">
-        <div className="dictionary-history-controls" aria-label="Lookup history">
+        <div
+          className="dictionary-history-controls"
+          aria-label="Lookup history"
+        >
           <button type="button" aria-label="Previous lookup" disabled>
             <ArrowLeft size={17} />
           </button>
@@ -333,7 +335,10 @@ export function DictionaryApp({
           </button>
         </div>
         <div className="dictionary-toolbar__spacer" />
-        <div className="dictionary-type-controls" aria-label="Definition text size">
+        <div
+          className="dictionary-type-controls"
+          aria-label="Definition text size"
+        >
           <button
             type="button"
             aria-label="Make text smaller"
@@ -444,7 +449,9 @@ export function DictionaryApp({
             <div className="dictionary-rule" />
             <section>
               <span className="dictionary-sense">1</span>
-              <p className="dictionary-definition">{displayedWord.definition}</p>
+              <p className="dictionary-definition">
+                {displayedWord.definition}
+              </p>
               <p className="dictionary-example">“{displayedWord.example}”</p>
             </section>
             <section className="dictionary-etymology">
@@ -462,13 +469,22 @@ export function DictionaryApp({
             <footer>
               <p>How well do you know this word?</p>
               <div>
-                <button type="button" onClick={() => updateDisplayedWord("learning")}>
+                <button
+                  type="button"
+                  onClick={() => updateDisplayedWord("learning")}
+                >
                   New to me
                 </button>
-                <button type="button" onClick={() => updateDisplayedWord("familiar")}>
+                <button
+                  type="button"
+                  onClick={() => updateDisplayedWord("familiar")}
+                >
                   Familiar
                 </button>
-                <button type="button" onClick={() => updateDisplayedWord("mastered")}>
+                <button
+                  type="button"
+                  onClick={() => updateDisplayedWord("mastered")}
+                >
                   I know it
                 </button>
               </div>
@@ -485,14 +501,25 @@ export function DictionaryApp({
               </div>
               <div className="dictionary-session-summary">
                 <span>{progress.diagnostic.label}</span>
-                <strong>Band {progress.diagnostic.band}</strong>
+                <strong>
+                  Band {progress.diagnostic.band} ·{" "}
+                  {completedVocabularyQuestionIds(progress).length}/
+                  {VOCABULARY_QUESTIONS.length}
+                </strong>
               </div>
             </header>
             <div className="dictionary-learning-rule">
-              <span style={{ width: `${Math.min(100, (practiceRound + 1) * 12)}%` }} />
+              <span
+                style={{
+                  width: `${Math.min(100, ((completedVocabularyQuestionIds(progress).length % 8) + 1) * 12.5)}%`,
+                }}
+              />
             </div>
             {needsIntroduction ? (
-              <article className="dictionary-teaching-card" aria-label={`Introduction to ${practiceWord.word}`}>
+              <article
+                className="dictionary-teaching-card"
+                aria-label={`Introduction to ${practiceWord.word}`}
+              >
                 <div className="dictionary-exercise-meta">
                   <span>New word</span>
                   <span>Read before practising</span>
@@ -524,33 +551,26 @@ export function DictionaryApp({
                   </button>
                 </div>
               </article>
-            ) : (
+            ) : activePracticeQuestion ? (
               <div className="dictionary-exercise-card">
                 <div className="dictionary-exercise-meta">
-                  <span>Application {practiceRound + 1}</span>
-                  <span>{practiceKind === "definition" ? "Meaning" : "In context"}</span>
+                  <span>
+                    Application{" "}
+                    {completedVocabularyQuestionIds(progress).length + 1}
+                  </span>
+                  <span>{activePracticeQuestion.label}</span>
                 </div>
-                {practiceKind === "definition" ? (
-                  <>
-                    <h2>What does “{practiceWord.word}” mean?</h2>
-                    <p className="dictionary-pronunciation">
-                      {practiceWord.pronunciation} · {practiceWord.partOfSpeech}
-                    </p>
-                  </>
+                <h2>{activePracticeQuestion.prompt}</h2>
+                {activePracticeQuestion.context ? (
+                  <blockquote>{activePracticeQuestion.context}</blockquote>
                 ) : (
-                  <>
-                    <h2>Choose the word that completes the sentence.</h2>
-                    <blockquote>
-                      {practiceWord.example.replace(
-                        new RegExp(practiceWord.word, "i"),
-                        "__________",
-                      )}
-                    </blockquote>
-                  </>
+                  <p className="dictionary-pronunciation">
+                    {practiceWord.pronunciation} · {practiceWord.partOfSpeech}
+                  </p>
                 )}
                 <div className="dictionary-practice-options">
-                  {practiceChoices.map((choice) => {
-                    const isCorrect = choice === practiceCorrect;
+                  {activePracticeQuestion.choices.map((choice) => {
+                    const isCorrect = choice === activePracticeQuestion.correct;
                     const selected = practiceSelection === choice;
                     return (
                       <button
@@ -574,9 +594,9 @@ export function DictionaryApp({
                 {practiceAnswered && (
                   <div className="dictionary-feedback" role="status">
                     <strong>
-                      {practiceSelection === practiceCorrect
+                      {practiceSelection === activePracticeQuestion.correct
                         ? "Exactly right."
-                        : `The answer is ${practiceCorrect}.`}
+                        : `The answer is ${activePracticeQuestion.correct}.`}
                     </strong>
                     <p>
                       {practiceWord.definition} {practiceWord.etymology}
@@ -593,6 +613,15 @@ export function DictionaryApp({
                   <ChevronRight size={16} />
                 </button>
               </div>
+            ) : (
+              <div className="dictionary-exercise-card dictionary-exercise-complete">
+                <span className="eyebrow">Question bank complete</span>
+                <h2>You’ve answered every available application.</h2>
+                <p>
+                  New words and question forms will appear here as the lexicon
+                  grows.
+                </p>
+              </div>
             )}
           </section>
         )}
@@ -602,20 +631,39 @@ export function DictionaryApp({
             <header>
               <span className="eyebrow">Your living lexicon</span>
               <h1>{progress.encounters.length} words encountered</h1>
-              <p>Every entry below is also kept in your Vocabulary Journal in Notes.</p>
+              <p>
+                Every entry below is also kept in your Vocabulary Journal in
+                Notes.
+              </p>
             </header>
             <div className="dictionary-stat-grid">
-              <div><strong>{counts.learning}</strong><span>Learning</span></div>
-              <div><strong>{counts.familiar}</strong><span>Familiar</span></div>
-              <div><strong>{counts.mastered}</strong><span>Mastered</span></div>
-              <div><strong>{progress.practiceStreak}</strong><span>Practice days</span></div>
+              <div>
+                <strong>{counts.learning}</strong>
+                <span>Learning</span>
+              </div>
+              <div>
+                <strong>{counts.familiar}</strong>
+                <span>Familiar</span>
+              </div>
+              <div>
+                <strong>{counts.mastered}</strong>
+                <span>Mastered</span>
+              </div>
+              <div>
+                <strong>{progress.practiceStreak}</strong>
+                <span>Practice days</span>
+              </div>
             </div>
             <div className="dictionary-word-list">
               {progress.encounters.map((encounter) => {
                 const word = vocabularyWord(encounter.wordId);
                 if (!word) return null;
                 return (
-                  <button type="button" key={word.id} onClick={() => selectLookup(word)}>
+                  <button
+                    type="button"
+                    key={word.id}
+                    onClick={() => selectLookup(word)}
+                  >
                     <span>
                       <strong>{word.word}</strong>
                       <small>{word.plainDefinition}</small>

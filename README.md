@@ -154,10 +154,10 @@ Token adds current provider availability for movies and series in
   filtering, optional TMDB/JustWatch movie and series availability, and opt-in
   parsing of Netflix-style CSV and Prime-style JSON history exports
 - Dictionary with a first-opening-only eight-word placement diagnostic, a
-  level-aware rare Word of the Day, searchable rare-word entries, alternating
-  meaning and context exercises, a teach-before-test entry for every word not
-  explicitly known, durable mastery states, and an automatically maintained
-  Vocabulary Journal inside Notes
+  level-aware rare Word of the Day, 40 searchable rare-word entries, 160
+  non-repeating meaning, context, synonym, and usage applications, a
+  teach-before-test entry for every word not explicitly known, durable mastery
+  states, and an automatically maintained Vocabulary Journal inside Notes
 
 Keyboard shortcuts `⌘1` through `⌘6` open the six main apps. `⌘Tab` cycles
 between running apps, including minimized ones.

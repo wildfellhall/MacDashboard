@@ -4524,6 +4524,16 @@ input:focus-visible,
   line-height: 1.5;
 }
 
+.dictionary-exercise-complete {
+  text-align: center;
+}
+
+.dictionary-exercise-complete p {
+  margin: 12px auto 0;
+  color: #7b7b80;
+  font-size: 11px;
+}
+
 .dictionary-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

@@ -180,6 +180,17 @@ test("validates and normalizes an assistant request", () => {
   });
 });
 
+test("omits blank optional recommendation context", () => {
+  const payload = structuredClone(validPayload);
+  payload.recommendations[0].description = "   ";
+  payload.recommendations[0].evidenceSummary = "";
+
+  const result = validateAssistantRequest(payload);
+
+  expect(result.recommendations[0]).not.toHaveProperty("description");
+  expect(result.recommendations[0]).not.toHaveProperty("evidenceSummary");
+});
+
 test("rejects a non-boolean sketch-presence flag", () => {
   expect(() =>
     validateAssistantRequest({

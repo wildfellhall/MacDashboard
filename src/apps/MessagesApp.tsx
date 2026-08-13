@@ -117,6 +117,8 @@ const fallbackLabel = (reason?: string) => {
       return "The response was incomplete";
     case "invalid_response":
       return "OpenAI returned an invalid response";
+    case "invalid_request":
+      return "The dashboard context could not be sent";
     case "request_rejected":
       return "The request was rejected";
     case "service_unavailable":

@@ -490,9 +490,9 @@ describe("MacDashboard desktop", () => {
       };
       recommendations: Array<{
         title: string;
-        description: string;
-        evidenceSummary: string;
-        sourceNotes: string[];
+        description?: string;
+        evidenceSummary?: string;
+        sourceNotes?: string[];
       }>;
     };
     expect(requestBody.relevantNotes[0]).toMatchObject({
@@ -518,6 +518,19 @@ describe("MacDashboard desktop", () => {
       evidenceSummary: expect.stringMatching(/Evidence match/),
       sourceNotes: expect.any(Array),
     });
+    expect(
+      requestBody.recommendations.every(
+        (item) =>
+          item.description === undefined || item.description.trim().length > 0,
+      ),
+    ).toBe(true);
+    expect(
+      requestBody.recommendations.every(
+        (item) =>
+          item.evidenceSummary === undefined ||
+          item.evidenceSummary.trim().length > 0,
+      ),
+    ).toBe(true);
     expect(
       screen.getByLabelText(/Relevant Notes used: Favorite Shows/),
     ).toBeTruthy();

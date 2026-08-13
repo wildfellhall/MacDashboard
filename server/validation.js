@@ -843,6 +843,7 @@ const validateRecommendations = (recommendations) => {
       !isBoundedString(
         item.description,
         LIMITS.recommendationDescriptionCharacters,
+        { allowEmpty: true },
       )
     ) {
       throw new InputValidationError(
@@ -854,6 +855,7 @@ const validateRecommendations = (recommendations) => {
       !isBoundedString(
         item.evidenceSummary,
         LIMITS.recommendationEvidenceCharacters,
+        { allowEmpty: true },
       )
     ) {
       throw new InputValidationError(
@@ -899,7 +901,7 @@ const validateRecommendations = (recommendations) => {
         }
         return copyBoundedString(tag, LIMITS.tasteSignalTagCharacters);
       }),
-      ...(item.description
+      ...(item.description?.trim()
         ? {
             description: copyBoundedString(
               item.description,
@@ -907,7 +909,7 @@ const validateRecommendations = (recommendations) => {
             ),
           }
         : {}),
-      ...(item.evidenceSummary
+      ...(item.evidenceSummary?.trim()
         ? {
             evidenceSummary: copyBoundedString(
               item.evidenceSummary,
@@ -915,7 +917,7 @@ const validateRecommendations = (recommendations) => {
             ),
           }
         : {}),
-      ...(item.sourceNotes
+      ...(item.sourceNotes?.length
         ? {
             sourceNotes: item.sourceNotes.map((title) =>
               copyBoundedString(

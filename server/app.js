@@ -217,7 +217,11 @@ export const createApp = ({
         }
       } catch (error) {
         if (error instanceof InputValidationError) {
-          return res.status(400).json({ error: error.message });
+          return res.status(400).json({
+            error: error.message,
+            reason: "invalid_request",
+            retryable: false,
+          });
         }
         if (req.aborted) return;
         if (error instanceof RecommendationPlanningUnavailableError) {
@@ -378,7 +382,11 @@ export const createApp = ({
       }
     } catch (error) {
       if (error instanceof InputValidationError) {
-        return res.status(error.statusCode).json({ error: error.message });
+        return res.status(error.statusCode).json({
+          error: error.message,
+          reason: "invalid_request",
+          retryable: false,
+        });
       }
       if (req.aborted) return;
 
@@ -410,10 +418,18 @@ export const createApp = ({
       error?.status === 413 ||
       error?.statusCode === 413
     ) {
-      return res.status(413).json({ error: "Request body is too large." });
+      return res.status(413).json({
+        error: "Request body is too large.",
+        reason: "invalid_request",
+        retryable: false,
+      });
     }
     if (error instanceof SyntaxError) {
-      return res.status(400).json({ error: "Request body must be valid JSON." });
+      return res.status(400).json({
+        error: "Request body must be valid JSON.",
+        reason: "invalid_request",
+        retryable: false,
+      });
     }
     console.error(
       "[MacDashboard assistant] Unhandled request error.",

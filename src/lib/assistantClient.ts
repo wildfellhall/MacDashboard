@@ -186,6 +186,7 @@ export type AssistantFallbackReason =
   | "invalid_response"
   | "provider_failed"
   | "provider_unavailable"
+  | "invalid_request"
   | "request_rejected";
 
 const FALLBACK_REASONS = new Set<AssistantFallbackReason>([
@@ -199,6 +200,7 @@ const FALLBACK_REASONS = new Set<AssistantFallbackReason>([
   "invalid_response",
   "provider_failed",
   "provider_unavailable",
+  "invalid_request",
   "request_rejected",
 ]);
 
@@ -443,6 +445,8 @@ const clientFailureResult = (
         ? `${providerName} did not finish in time. No local fallback was used and nothing was changed; please try again.`
       : reason === "request_rejected"
         ? `${providerName} rejected this request. No local fallback was used and nothing was changed.`
+        : reason === "invalid_request"
+          ? `The dashboard could not send this message because its local context was invalid. The request did not reach ${providerName}; reload and try again.`
         : reason === "invalid_response"
           ? `${providerName} returned an invalid response. No local fallback was used and nothing was changed.`
           : `${providerName} is unavailable. No local fallback was used and nothing was changed.`;
@@ -515,6 +519,14 @@ export const sendAssistantRequest = async (
         serverReason ?? "service_unavailable",
         configured,
         serverRetryable ?? true,
+        provider,
+      );
+    }
+    if ([400, 403, 413].includes(response.status)) {
+      return clientFailureResult(
+        serverReason ?? "invalid_request",
+        configured,
+        serverRetryable ?? false,
         provider,
       );
     }

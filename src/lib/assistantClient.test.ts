@@ -115,9 +115,9 @@ describe("assistant client failure boundary", () => {
   });
 
   it.each([
-    [400, "request_rejected", false],
-    [403, "request_rejected", false],
-    [413, "request_rejected", false],
+    [400, "invalid_request", false],
+    [403, "invalid_request", false],
+    [413, "invalid_request", false],
     [429, "rate_limited", true],
     [500, "service_unavailable", true],
   ] as const)(
@@ -147,6 +147,35 @@ describe("assistant client failure boundary", () => {
       });
     },
   );
+
+  it("preserves an explicit provider rejection reason from the server", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            error: "Provider rejected the request",
+            reason: "request_rejected",
+            retryable: false,
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      sendAssistantRequest(payload, {
+        configured: true,
+        provider: "codex",
+      }),
+    ).resolves.toMatchObject({
+      fallbackReason: "request_rejected",
+      retryable: false,
+    });
+  });
 
   it("does not execute heuristic actions after a network failure", async () => {
     vi.stubGlobal(

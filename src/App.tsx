@@ -166,6 +166,26 @@ const compactMessages = (messages: Message[]) => {
     .slice(-60);
 };
 
+const optionalRecommendationDetails = (
+  description?: string,
+  evidenceSummary?: string,
+  sourceNotes?: string[],
+) => {
+  const cleanDescription = description?.trim();
+  const cleanEvidenceSummary = evidenceSummary?.trim();
+  const cleanSourceNotes = (sourceNotes ?? [])
+    .map((title) => title.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  return {
+    ...(cleanDescription ? { description: cleanDescription } : {}),
+    ...(cleanEvidenceSummary
+      ? { evidenceSummary: cleanEvidenceSummary }
+      : {}),
+    ...(cleanSourceNotes.length ? { sourceNotes: cleanSourceNotes } : {}),
+  };
+};
+
 const noteText = (html: string) => {
   const element = document.createElement("div");
   element.innerHTML = html;
@@ -558,10 +578,15 @@ function App() {
         title: book.title,
         kind: enriched.kind,
         score: scoreBook(enriched, bookProfile, tasteDossier),
-        tags: [book.author, ...book.genres, ...book.themes],
-        description: book.description,
-        evidenceSummary: book.aiReason ?? evidence.summary,
-        sourceNotes: book.aiEvidenceNotes ?? evidence.sourceNoteTitles,
+        tags: [book.author, ...book.genres, ...book.themes]
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .slice(0, 16),
+        ...optionalRecommendationDetails(
+          book.description,
+          book.aiReason?.trim() || evidence.summary,
+          book.aiEvidenceNotes ?? evidence.sourceNoteTitles,
+        ),
       };
     });
     const photos = photoCatalog.map((photo) => {
@@ -581,10 +606,15 @@ function App() {
           explicitProfile,
           tasteDossier,
         ),
-        tags: photo.tags,
-        description: photo.reason,
-        evidenceSummary: evidence.summary,
-        sourceNotes: evidence.sourceNoteTitles,
+        tags: photo.tags
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .slice(0, 16),
+        ...optionalRecommendationDetails(
+          photo.reason,
+          evidence.summary,
+          evidence.sourceNoteTitles,
+        ),
       };
     });
     const tv = watchCatalog.map((item) => {
@@ -633,10 +663,15 @@ function App() {
           ...item.moods,
           ...(item.platforms ?? []),
           ...(item.mediaType ? [item.mediaType] : []),
-        ],
-        description: item.description,
-        evidenceSummary: item.aiReason ?? evidence.summary,
-        sourceNotes: item.aiEvidenceNotes ?? evidence.sourceNoteTitles,
+        ]
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .slice(0, 16),
+        ...optionalRecommendationDetails(
+          item.description,
+          item.aiReason?.trim() || evidence.summary,
+          item.aiEvidenceNotes ?? evidence.sourceNoteTitles,
+        ),
       };
     });
     return [...books, ...photos, ...tv]

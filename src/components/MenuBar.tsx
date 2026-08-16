@@ -1,10 +1,15 @@
 import { BatteryMedium, Diamond, Search, Wifi } from "lucide-react";
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
   useRef,
   useState,
 } from "react";
+import {
+  DEFAULT_DESKTOP_COLOR,
+  DESKTOP_COLOR_PRESETS,
+} from "../lib/desktopAppearance";
 import type { AppId, AppMeta } from "../types";
 
 type Props = {
@@ -14,6 +19,9 @@ type Props = {
   onZoomActive: () => void;
   onBringAllToFront: () => void;
   onAskDashboard: () => void;
+  desktopColor: string;
+  onDesktopColorChange: (color: string) => void;
+  onResetDesktopColor: () => void;
   windowItems: Array<{
     id: AppId;
     name: string;
@@ -54,14 +62,19 @@ export function MenuBar({
   onZoomActive,
   onBringAllToFront,
   onAskDashboard,
+  desktopColor,
+  onDesktopColorChange,
+  onResetDesktopColor,
   windowItems,
   onActivateWindow,
 }: Props) {
   const [now, setNow] = useState(() => new Date());
   const [openMenu, setOpenMenu] = useState<MenuName | null>(null);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [battery, setBattery] = useState<BatterySnapshot | null>(null);
   const [online, setOnline] = useState(() => navigator.onLine);
   const menuRef = useRef<HTMLElement>(null);
+  const appearanceCloseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 15_000);
@@ -121,6 +134,16 @@ export function MenuBar({
       window.removeEventListener("keydown", escape);
     };
   }, [openMenu]);
+
+  useEffect(() => {
+    if (!appearanceOpen) return;
+    window.requestAnimationFrame(() => appearanceCloseRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAppearanceOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [appearanceOpen]);
 
   const date = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
@@ -233,11 +256,12 @@ export function MenuBar({
   );
 
   return (
-    <header
-      className="menu-bar"
-      ref={menuRef}
-      onKeyDown={handleMenuKeyboard}
-    >
+    <>
+      <header
+        className="menu-bar"
+        ref={menuRef}
+        onKeyDown={handleMenuKeyboard}
+      >
       <div className="menu-left">
         <span className="menu-trigger-wrap menu-trigger-wrap--brand">
           <button
@@ -265,7 +289,12 @@ export function MenuBar({
                 About MacDashboard
               </button>
               <span className="menu-separator" />
-              <button type="button" role="menuitem" disabled>
+              <button
+                type="button"
+                role="menuitem"
+                aria-haspopup="dialog"
+                onClick={() => invoke(() => setAppearanceOpen(true))}
+              >
                 System Settings…
               </button>
             </span>
@@ -472,6 +501,104 @@ export function MenuBar({
           <span>{time}</span>
         </time>
       </div>
-    </header>
+      </header>
+      {appearanceOpen && (
+        <div
+          className="appearance-backdrop"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) setAppearanceOpen(false);
+          }}
+        >
+          <section
+            className="appearance-panel"
+            role="dialog"
+            aria-labelledby="appearance-title"
+          >
+            <header className="appearance-panel__titlebar">
+              <button
+                ref={appearanceCloseRef}
+                type="button"
+                className="appearance-close"
+                aria-label="Close Desktop Appearance"
+                onClick={() => setAppearanceOpen(false)}
+              />
+              <strong id="appearance-title">Wallpaper</strong>
+            </header>
+            <div className="appearance-panel__body">
+              <div
+                className="appearance-preview"
+                style={{ "--preview-color": desktopColor } as CSSProperties}
+                aria-label={`Desktop preview in ${desktopColor.toUpperCase()}`}
+              >
+                <span className="appearance-preview__menu" />
+                <span className="appearance-preview__shape appearance-preview__shape--one" />
+                <span className="appearance-preview__shape appearance-preview__shape--two" />
+                <span className="appearance-preview__dock" />
+              </div>
+              <div className="appearance-panel__heading">
+                <div>
+                  <h2>Desktop color</h2>
+                  <p>Choose a tint for your MacDashboard wallpaper.</p>
+                </div>
+                <output aria-live="polite">
+                  {desktopColor.toUpperCase()}
+                </output>
+              </div>
+              <div
+                className="appearance-color-grid"
+                role="group"
+                aria-label="Desktop background presets"
+              >
+                {DESKTOP_COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    className={
+                      desktopColor === preset.color ? "is-selected" : ""
+                    }
+                    aria-label={`Use ${preset.name} background`}
+                    aria-pressed={desktopColor === preset.color}
+                    onClick={() => onDesktopColorChange(preset.color)}
+                  >
+                    <span
+                      className="appearance-color-chip"
+                      style={{ backgroundColor: preset.color }}
+                    />
+                    <span>{preset.name}</span>
+                  </button>
+                ))}
+                <label className="appearance-custom-color">
+                  <span
+                    className="appearance-color-chip appearance-color-chip--custom"
+                    style={{ backgroundColor: desktopColor }}
+                  >
+                    <span aria-hidden="true">+</span>
+                  </span>
+                  <span>Custom</span>
+                  <input
+                    type="color"
+                    value={desktopColor}
+                    aria-label="Choose a custom desktop background color"
+                    onChange={(event) =>
+                      onDesktopColorChange(event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+              <div className="appearance-panel__footer">
+                <span>Changes are saved on this device.</span>
+                <button
+                  type="button"
+                  disabled={desktopColor === DEFAULT_DESKTOP_COLOR}
+                  onClick={onResetDesktopColor}
+                >
+                  Restore Default
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }

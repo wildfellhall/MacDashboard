@@ -79,6 +79,50 @@ describe("MacDashboard desktop", () => {
     ]);
   });
 
+  it("changes, restores, and persists the desktop background color", async () => {
+    const first = render(<App />);
+    const desktop = first.container.querySelector(".desktop");
+
+    expect(desktop?.getAttribute("data-background-color")).toBe("#8faec5");
+    fireEvent.click(screen.getByLabelText("MacDashboard menu"));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "System Settings…" }),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Wallpaper" })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Use Lavender background" }),
+    );
+    expect(desktop?.getAttribute("data-background-color")).toBe("#aa9dca");
+    expect(screen.getByText("#AA9DCA")).toBeTruthy();
+
+    await waitFor(() =>
+      expect(
+        window.localStorage.getItem("macdashboard.desktop.color.v1"),
+      ).toBe(JSON.stringify("#aa9dca")),
+    );
+    fireEvent.click(screen.getByLabelText("Close Desktop Appearance"));
+    first.unmount();
+
+    const second = render(<App />);
+    expect(
+      second.container
+        .querySelector(".desktop")
+        ?.getAttribute("data-background-color"),
+    ).toBe("#aa9dca");
+
+    fireEvent.click(screen.getByLabelText("MacDashboard menu"));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "System Settings…" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore Default" }));
+    expect(
+      second.container
+        .querySelector(".desktop")
+        ?.getAttribute("data-background-color"),
+    ).toBe("#8faec5");
+  });
+
   it("runs the Dictionary diagnostic only once and syncs its words to Notes", async () => {
     const first = render(<App />);
     fireEvent.click(screen.getByLabelText("Open Dictionary"));

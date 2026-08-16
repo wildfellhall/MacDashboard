@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { BooksApp } from "./apps/BooksApp";
 import { DictionaryApp } from "./apps/DictionaryApp";
 import { MessagesApp } from "./apps/MessagesApp";
@@ -18,6 +25,11 @@ import {
   WATCH_ITEMS,
 } from "./data";
 import { usePersistentState } from "./hooks/usePersistentState";
+import {
+  DEFAULT_DESKTOP_COLOR,
+  desktopColorTone,
+  normalizeDesktopColor,
+} from "./lib/desktopAppearance";
 import {
   getAssistantConfig,
   resetCodexThread,
@@ -300,6 +312,10 @@ function App() {
     "macdashboard.messages.v1",
     INITIAL_MESSAGES,
   );
+  const [storedDesktopColor, setStoredDesktopColor] = usePersistentState(
+    "macdashboard.desktop.color.v1",
+    DEFAULT_DESKTOP_COLOR,
+  );
   const [feedbackEvents, setFeedbackEvents] = usePersistentState<
     FeedbackEvent[]
   >("macdashboard.feedback.v1", []);
@@ -352,6 +368,8 @@ function App() {
     Partial<Record<"books" | "photos" | "tv", string>>
   >({});
   const commandIdRef = useRef(0);
+  const desktopColor = normalizeDesktopColor(storedDesktopColor);
+  const desktopTone = desktopColorTone(desktopColor);
 
   const preferences =
     notes.find((note) => note.id === "preferences") ?? INITIAL_NOTES[0];
@@ -2236,7 +2254,12 @@ function App() {
   };
 
   return (
-    <div className="desktop">
+    <div
+      className="desktop"
+      data-background-color={desktopColor}
+      data-wallpaper-tone={desktopTone}
+      style={{ "--desktop-color": desktopColor } as CSSProperties}
+    >
       <div className="wallpaper-shape wallpaper-shape--one" />
       <div className="wallpaper-shape wallpaper-shape--two" />
       <div className="wallpaper-shape wallpaper-shape--three" />
@@ -2255,6 +2278,13 @@ function App() {
         }}
         onBringAllToFront={bringAllToFront}
         onAskDashboard={() => openApp("messages")}
+        desktopColor={desktopColor}
+        onDesktopColorChange={(color) =>
+          setStoredDesktopColor(normalizeDesktopColor(color))
+        }
+        onResetDesktopColor={() =>
+          setStoredDesktopColor(DEFAULT_DESKTOP_COLOR)
+        }
         windowItems={windowMenuItems}
         onActivateWindow={openApp}
       />

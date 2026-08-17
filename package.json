@@ -42,13 +42,13 @@
     "audit:public": "node scripts/public-release-audit.mjs"
   },
   "dependencies": {
-    "@openai/codex-sdk": "^0.146.0",
+    "@openai/codex-sdk": "^0.147.0",
     "concurrently": "^10.0.4",
     "dompurify": "^3.4.13",
     "express": "^5.2.1",
     "jspdf": "^4.2.1",
-    "lucide-react": "^0.468.0",
-    "openai": "^7.1.0",
+    "lucide-react": "^0.577.0",
+    "openai": "^7.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
